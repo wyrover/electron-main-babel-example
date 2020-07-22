@@ -1,0 +1,11 @@
+{
+  "service": {
+    "username": "root",
+    "password": "foot",
+    "port": 5600
+  },
+  "app": {
+    "username": "root",
+    "password": "foot"
+  }
+}

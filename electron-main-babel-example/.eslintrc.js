@@ -12,7 +12,7 @@ module.exports = {
   globals: {
     __static: true,
   },
-  
+
   rules: {
     // allow paren-less arrow functions
     'arrow-parens': 0,
@@ -21,4 +21,4 @@ module.exports = {
     // allow debugger during development
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0,
   },
-};
+}
