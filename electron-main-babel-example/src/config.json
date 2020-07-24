@@ -2,7 +2,9 @@
   "service": {
     "username": "root",
     "password": "foot",
-    "port": 5600
+    "port": 5600,
+    "SECRET_TOKEN_SERVER": "SER2763213AKSJKASD",
+    "SECRET_TOKEN_CLIENT": "CLIENTASHJDJHASHJB3"
   },
   "app": {
     "username": "root",

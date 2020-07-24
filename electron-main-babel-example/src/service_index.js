@@ -4,15 +4,20 @@ import path from 'path'
 import https from 'https'
 import express from 'express'
 import jayson from 'jayson'
+import morgan from 'morgan'
+import helmet from 'helmet'
 import bodyParser from 'body-parser'
+import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import getPort from 'get-port'
 import schedule from 'node-schedule'
+
 import MiddlewareAPI from './server_api/middleware'
 import utils from './utils'
 // import report from './report'
 // import osinfo from './osinfo'
 import { db } from './kvdb'
+import { BindServer } from './socket'
 
 // const getIP = require('external-ip')()
 
@@ -68,48 +73,116 @@ export async function StartServer () {
 
   // app.use(clientAuthMiddleware())
 
+  app.use(helmet())
+  app.use(morgan('dev'))
+  app.use(cookieParser())
   app.use(cors())
   app.use(
     bodyParser.urlencoded({
       extended: true
     })
   )
-  app.use(bodyParser.json())
+  app.use(bodyParser.json({limit: '5mb'}))
 
   // ----------------------------------------------------------------------
   // express routes
   app.get('/', function (req, res) {
-    res.send('Hello World')
+    return res.json({
+      message: 'Hello World'
+    })
   })
 
-  app.get('/db/:key', async (req, res) => {
-    let key = req.params.key
+  app.post('/kv', async (req, res) => {
     try {
-      const value = await db.get(key, { valueEncoding: 'binary' })
-      res.send(value.toString())
-    } catch (err) {
-      res.send(err)
-    }
-  })
-
-  app.get('/pdb/:key/:value', async (req, res) => {
-    let key = req.params.key
-    let value = req.params.value
-    try {
+      const key = req.body.key
+      const value = req.body.value
       await db.put(key, Buffer.from(value), { valueEncoding: 'binary' })
-      res.send(value)
+      return res.status(200).json({
+        success: true,
+        key: key,
+        value: value
+      })
     } catch (err) {
-      res.send(err)
+      console.log(err)
+      return res.status(500).json({
+        error: err,
+        stackError: err.stack
+      })
     }
   })
 
-  app.delete('/db/:key', async (req, res) => {
-    let key = req.params.key
+  app.get('/kv/:key', async (req, res) => {
     try {
-      await db.del(key)
-      res.send(key)
+      const key = req.params.key
+
+      const value = await db.get(key, { valueEncoding: 'binary' })
+      if (!value) {
+        return res.status(404).json({
+          success: false,
+          data: 'key not exist'
+        })
+      } else {
+        return res.status(200).json({
+          success: true,
+          value: value.toString()
+        })
+      }
     } catch (err) {
-      res.send(err)
+      console.log(err)
+      return res.status(500).json({
+        error: err,
+        stackError: err.stack
+      })
+    }
+  })
+
+  app.put('/kv/:key', async (req, res) => {
+    try {
+      const key = req.params.key
+      const postValue = req.body.value
+
+      const value = await db.get(key, { valueEncoding: 'binary' })
+      if (!value) {
+        return res.status(404).json({
+          message: 'key not found.'
+        })
+      } else {
+        await db.put(key, Buffer.from(postValue), { valueEncoding: 'binary' })
+        return res.status(200).json({
+          success: true,
+          key: key,
+          value: postValue
+        })
+      }
+    } catch (err) {
+      console.log(err)
+      return res.status(500).json({
+        error: err,
+        stackError: err.stack
+      })
+    }
+  })
+
+  app.delete('/kv/:key', async (req, res) => {
+    try {
+      const key = req.params.key
+      const value = await db.get(key, { valueEncoding: 'binary' })
+      if (!value) {
+        return res.status(400).json({
+          message: 'key not found.'
+        })
+      } else {
+        await db.del(key)
+        return res.status(204).json({
+          success: true
+        })
+      }
+    } catch (err) {
+      console.log(err)
+      return res.status(500).json({
+        error: err,
+        stackError: err.stack
+      })
     }
   })
 
@@ -118,22 +191,30 @@ export async function StartServer () {
 
   app.post('/jsonrpc', jayson.server(MiddlewareAPI).middleware())
 
-  https
-    .createServer(
-      {
-        requestCert: false,
-        rejectUnauthorized: false,
-        key: fs.readFileSync(path.join(__dirname, 'server-key.pem')),
-        cert: fs.readFileSync(path.join(__dirname, 'server-crt.pem')),
-        ca: fs.readFileSync(path.join(__dirname, 'ca-crt.pem'))
-      },
-      app
-    )
-    .listen(conf.service.port, async () => {
-      console.log(`Server is run on port ` + conf.service.port)
-      // let info = await osinfo.getINFO()
-      // report.serviceReport('electron_service', info)
+  app.use((req, res, next) => {
+    return res.status(404).json({
+      error: 'page not found!'
     })
+  })
+
+  const server = https.createServer(
+    {
+      requestCert: false,
+      rejectUnauthorized: false,
+      key: fs.readFileSync(path.join(__dirname, 'server-key.pem')),
+      cert: fs.readFileSync(path.join(__dirname, 'server-crt.pem')),
+      ca: fs.readFileSync(path.join(__dirname, 'ca-crt.pem'))
+    },
+    app
+  )
+
+  BindServer(server)
+
+  server.listen(conf.service.port, async () => {
+    console.log(`Server is run on port ` + conf.service.port)
+    // let info = await osinfo.getINFO()
+    // report.serviceReport('electron_service', info)
+  })
 
   // mylmdb.close()
 }

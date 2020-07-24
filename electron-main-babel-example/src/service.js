@@ -1,4 +1,4 @@
-;(async () => {
+;(async function main () {
   console.log('start service process')
   const serviceIndex = require('./service_index')
   serviceIndex.StartServer()
