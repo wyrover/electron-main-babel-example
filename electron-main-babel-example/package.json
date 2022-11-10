@@ -88,7 +88,7 @@
     "@electron-forge/maker-zip": "6.0.0-beta.52",
     "babel-eslint": "^10.1.0",
     "cross-env": "^7.0.2",
-    "electron": "9.1.1",
+    "electron": "18.3.7",
     "electron-rebuild": "^1.11.0",
     "eslint": "^7.5.0",
     "eslint-config-standard": "^11.0.0",
